@@ -1,0 +1,3 @@
+"""Snake game environment module."""
+
+
