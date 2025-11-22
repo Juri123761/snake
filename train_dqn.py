@@ -19,6 +19,7 @@ def train_dqn(episodes: int = 5000, save_interval: int = 500,
     
     for episode in range(episodes):
         state = env.reset()
+        agent.reset_n_step_buffer()
         done = False
         
         step_count = 0
@@ -32,6 +33,7 @@ def train_dqn(episodes: int = 5000, save_interval: int = 500,
             if step_count % 4 == 0:
                 agent.train()
         
+        agent.reset_n_step_buffer()
         score = env.get_score()
         scores.append(score)
         
