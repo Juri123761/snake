@@ -3,13 +3,12 @@ from game.snake_env import SnakeEnv
 from agents.dqn_agent import DQNAgent
 
 
-def train_dqn(episodes: int = 15000, save_interval: int = 1000,
+def train_dqn(episodes: int = 5000, save_interval: int = 500,
               model_path: str = "dqn_model.pth"):
     env = SnakeEnv()
     agent = DQNAgent()
     
     scores = []
-    rewards_history = []
     best_avg = 0
     
     print("Starting DQN training...")
@@ -20,27 +19,29 @@ def train_dqn(episodes: int = 15000, save_interval: int = 1000,
     
     for episode in range(episodes):
         state = env.reset()
-        total_reward = 0
         done = False
         
+        step_count = 0
         while not done:
             action = agent.act(state, training=True)
             next_state, reward, done = env.step(action)
             agent.remember(state, action, reward, next_state, done)
             state = next_state
-            total_reward += reward
             
-            agent.train()
+            step_count += 1
+            if step_count % 4 == 0:
+                agent.train()
         
         score = env.get_score()
         scores.append(score)
-        rewards_history.append(total_reward)
         
         if (episode + 1) % 100 == 0:
             avg_score = np.mean(scores[-100:])
-            avg_reward = np.mean(rewards_history[-100:])
             max_score = max(scores[-100:]) if scores else 0
-            best_avg = max(best_avg, avg_score)
+            
+            if avg_score > best_avg:
+                best_avg = avg_score
+            
             print(f"Episode {episode + 1}/{episodes} | "
                   f"Avg Score: {avg_score:.2f} | "
                   f"Max Score: {max_score} | "
@@ -69,4 +70,4 @@ def train_dqn(episodes: int = 15000, save_interval: int = 1000,
 
 
 if __name__ == "__main__":
-    train_dqn(episodes=15000, save_interval=1000)
+    train_dqn(episodes=5000, save_interval=500)

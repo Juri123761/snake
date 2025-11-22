@@ -12,7 +12,7 @@ from models.dqn_model import DuelingDQNModel
 
 class ReplayMemory:
     
-    def __init__(self, capacity: int = 200000):
+    def __init__(self, capacity: int = 50000):
         self.memory = deque(maxlen=capacity)
     
     def push(self, state: np.ndarray, action: int, reward: float,
@@ -20,6 +20,8 @@ class ReplayMemory:
         self.memory.append((state, action, reward, next_state, done))
     
     def sample(self, batch_size: int):
+        if batch_size > len(self.memory):
+            raise ValueError(f"Batch size {batch_size} exceeds memory size {len(self.memory)}")
         batch = random.sample(self.memory, batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
         return (np.array(states), np.array(actions), np.array(rewards),
@@ -34,8 +36,8 @@ class DQNAgent:
     def __init__(self, state_size: int = 16, action_size: int = 3,
                  learning_rate: float = 0.00025, gamma: float = 0.99,
                  epsilon: float = 1.0, epsilon_decay: float = 0.9999,
-                 epsilon_min: float = 0.01, memory_size: int = 200000,
-                 batch_size: int = 512, target_update: int = 2000,
+                 epsilon_min: float = 0.01, memory_size: int = 50000,
+                 batch_size: int = 64, target_update: int = 1000,
                  device: Optional[torch.device] = None):
         self.state_size = state_size
         self.action_size = action_size
@@ -84,24 +86,24 @@ class DQNAgent:
         
         states, actions, rewards, next_states, dones = self.memory.sample(self.batch_size)
         
-        states = torch.FloatTensor(states).to(self.device)
-        actions = torch.LongTensor(actions).to(self.device)
-        rewards = torch.FloatTensor(rewards).to(self.device)
-        next_states = torch.FloatTensor(next_states).to(self.device)
-        dones = torch.BoolTensor(dones).to(self.device)
+        states_t = torch.FloatTensor(states).to(self.device)
+        actions_t = torch.LongTensor(actions).to(self.device)
+        rewards_t = torch.FloatTensor(rewards).to(self.device)
+        next_states_t = torch.FloatTensor(next_states).to(self.device)
+        dones_t = torch.BoolTensor(dones).to(self.device)
         
-        q_values = self.q_network(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+        q_values = self.q_network(states_t).gather(1, actions_t.unsqueeze(1)).squeeze(1)
         
         with torch.no_grad():
-            next_actions = self.q_network(next_states).argmax(1)
-            next_q_values = self.target_network(next_states).gather(1, next_actions.unsqueeze(1)).squeeze(1)
-            target_q_values = rewards + (self.gamma * next_q_values * ~dones)
+            next_actions = self.q_network(next_states_t).argmax(1)
+            next_q_values = self.target_network(next_states_t).gather(1, next_actions.unsqueeze(1)).squeeze(1)
+            target_q_values = rewards_t + (self.gamma * next_q_values * ~dones_t)
         
         loss = nn.MSELoss()(q_values, target_q_values)
         
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=10.0)
+        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
         self.optimizer.step()
         
         if self.steps % self.target_update == 0:
@@ -109,7 +111,9 @@ class DQNAgent:
     
     def save(self, filepath: str):
         try:
-            os.makedirs(os.path.dirname(filepath) if os.path.dirname(filepath) else '.', exist_ok=True)
+            dirname = os.path.dirname(filepath)
+            if dirname:
+                os.makedirs(dirname, exist_ok=True)
             torch.save({
                 'q_network': self.q_network.state_dict(),
                 'target_network': self.target_network.state_dict(),

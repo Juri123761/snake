@@ -3,8 +3,8 @@ import random
 from typing import Tuple, List
 
 
-GRID_WIDTH = 15
-GRID_HEIGHT = 17
+GRID_WIDTH = 17
+GRID_HEIGHT = 15
 
 
 class SnakeEnv:
@@ -30,17 +30,15 @@ class SnakeEnv:
     
     def _spawn_food(self) -> Tuple[int, int]:
         max_cells = self.width * self.height
-        if len(self.snake) >= max_cells:
+        snake_set = set(self.snake)
+        if len(snake_set) >= max_cells:
             raise RuntimeError("Grid is full, cannot spawn food")
         
-        free_cells = [(x, y) for x in range(self.width) for y in range(self.height) if (x, y) not in self.snake]
-        return random.choice(free_cells) if free_cells else (0, 0)
-    
-    def _get_head(self) -> Tuple[int, int]:
-        return self.snake[0]
+        free_cells = [(x, y) for x in range(self.width) for y in range(self.height) if (x, y) not in snake_set]
+        return random.choice(free_cells)
     
     def _move_direction(self, action: int) -> Tuple[int, int]:
-        current_idx = self.direction_to_idx.get(self.direction, 0)
+        current_idx = self.direction_to_idx[self.direction]
         if action == 0:
             new_idx = (current_idx - 1) % 4
         elif action == 1:
@@ -53,10 +51,9 @@ class SnakeEnv:
         x, y = pos
         if x < 0 or x >= self.width or y < 0 or y >= self.height:
             return True
-        return pos in self.snake[:-1]
-    
-    def _get_distance_to_food(self, pos: Tuple[int, int]) -> float:
-        return abs(pos[0] - self.food[0]) + abs(pos[1] - self.food[1])
+        if len(self.snake) > 1:
+            return pos in self.snake[1:]
+        return False
     
     def step(self, action: int) -> Tuple[np.ndarray, float, bool]:
         if self.done:
@@ -66,14 +63,14 @@ class SnakeEnv:
         self.steps_since_food += 1
         
         self.direction = self._move_direction(action)
-        head = self._get_head()
+        head = self.snake[0]
         new_head = (head[0] + self.direction[0], head[1] + self.direction[1])
         
         if self._check_collision(new_head):
             self.done = True
             return self.get_state(), -100.0, True
         
-        old_distance = self._get_distance_to_food(head)
+        old_distance = abs(head[0] - self.food[0]) + abs(head[1] - self.food[1])
         self.snake.insert(0, new_head)
         
         reward = 0.05
@@ -89,17 +86,17 @@ class SnakeEnv:
                 self.done = True
                 return self.get_state(), -30.0, True
         
-        new_distance = self._get_distance_to_food(new_head)
+        new_distance = abs(new_head[0] - self.food[0]) + abs(new_head[1] - self.food[1])
         distance_reward = (old_distance - new_distance) * 3.0
         reward += distance_reward
         
         return self.get_state(), reward, self.done
     
     def get_state(self) -> np.ndarray:
-        head = self._get_head()
+        head = self.snake[0]
         state = np.zeros(16, dtype=np.float32)
         
-        current_idx = self.direction_to_idx.get(self.direction, 0)
+        current_idx = self.direction_to_idx[self.direction]
         
         straight = (head[0] + self.direction[0], head[1] + self.direction[1])
         left_dir = self.directions[(current_idx - 1) % 4]

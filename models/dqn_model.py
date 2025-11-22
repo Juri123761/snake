@@ -1,12 +1,11 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class DuelingDQNModel(nn.Module):
     
-    def __init__(self, input_size: int = 16, hidden1: int = 512, 
-                 hidden2: int = 512, output_size: int = 3):
+    def __init__(self, input_size: int = 16, hidden1: int = 128, 
+                 hidden2: int = 128, output_size: int = 3):
         super(DuelingDQNModel, self).__init__()
         
         self.feature = nn.Sequential(

@@ -5,7 +5,7 @@ from typing import Tuple, List
 
 class SnakeRenderer:
     
-    def __init__(self, width: int = 15, height: int = 17, cell_size: int = 30):
+    def __init__(self, width: int = 17, height: int = 15, cell_size: int = 30):
         self.width = width
         self.height = height
         self.cell_size = cell_size
